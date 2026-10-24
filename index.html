@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campus Polygon Test</title>
+<style>
+:root{color-scheme:light;--bg:#eef1f4;--card:#fff;--ink:#14212b;--muted:#566774;--line:#d3dae0;--btn:#0b5cad;
+--in:#0f6b45;--inbg:#d6f0e3;--out:#a8231b;--outbg:#fbdfdc;--un:#7a4f00;--unbg:#ffefc2;--idle:#33414d;--idlebg:#e1e6eb}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:480px;margin:0 auto;padding:16px 14px 40px}
+h1{font-size:1.35rem;margin:4px 0 6px}
+h2{font-size:1rem;margin:0 0 8px}
+p{margin:0 0 8px}
+.small{font-size:.88rem;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:12px}
+#secure{display:none;background:var(--outbg);color:var(--out);border-radius:10px;padding:12px;margin-top:10px;font-weight:600}
+#status{border-radius:14px;padding:20px 16px;text-align:center;margin-top:12px;border:2px solid transparent}
+#status .big{font-size:2.6rem;font-weight:800;line-height:1.1;margin:4px 0}
+#status .sub{font-size:.95rem}
+.idle{background:var(--idlebg);color:var(--idle);border-color:#b8c2cc}
+.in{background:var(--inbg);color:var(--in);border-color:var(--in)}
+.out{background:var(--outbg);color:var(--out);border-color:var(--out)}
+.un{background:var(--unbg);color:var(--un);border-color:var(--un)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--bg);border-radius:8px;padding:10px}
+.stat b{display:block;font-size:1.2rem;font-variant-numeric:tabular-nums;word-break:break-all}
+.stat span{font-size:.8rem;color:var(--muted)}
+.stat.bad b{color:var(--un)}
+button{font:inherit;min-height:52px;border-radius:10px;border:1px solid var(--btn);background:var(--btn);color:#fff;font-weight:700;padding:0 14px;width:100%}
+button.alt{background:#fff;color:var(--btn)}
+button:disabled{opacity:.4}
+button:focus-visible{outline:3px solid #f2a900;outline-offset:2px}
+.row{display:flex;gap:10px;margin-top:10px}
+#msg{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--idlebg);font-size:.95rem;min-height:44px}
+#msg.err{background:var(--outbg);color:var(--out)}
+#msg.ok{background:var(--inbg);color:var(--in)}
+#log{list-style:none;margin:0;padding:0;font-size:.88rem;font-variant-numeric:tabular-nums}
+#log li{padding:6px 0;border-top:1px solid var(--line)}
+#log li:first-child{border-top:0}
+#dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#9aa7b2;margin-right:6px}
+#dot.live{background:var(--in)}
+#map{width:100%;height:260px;background:var(--bg);border-radius:8px;display:block}
+.poly{fill:rgba(11,92,173,.15);stroke:var(--btn);stroke-width:2;vector-effect:non-scaling-stroke}
+.you{fill:var(--out);stroke:#fff;stroke-width:2;vector-effect:non-scaling-stroke}
+.accc{fill:rgba(168,35,27,.12);stroke:var(--out);stroke-width:1;vector-effect:non-scaling-stroke}
+</style>
+</head>
+<body>
+<main>
+<h1>Campus polygon test</h1>
+<p class="small">Checks if your phone is inside the real campus outline, not a circle. Nothing leaves your phone.</p>
+<div id="secure">Location is blocked on this kind of page. Open this file from an https:// link instead.</div>
+
+<div id="status" class="idle" role="status" aria-live="polite">
+  <div class="big" id="sBig">Not started</div>
+  <div class="sub" id="sSub">Press “Start live test”.</div>
+</div>
+<div id="msg" aria-live="polite">Ready.</div>
+
+<div class="card">
+  <h2><span id="dot"></span>Live test</h2>
+  <p class="small" id="shapeName"></p>
+  <div class="row">
+    <button id="btnStart">Start live test</button>
+    <button id="btnStop" class="alt" disabled>Stop</button>
+  </div>
+  <svg id="map" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style="margin-top:12px" aria-label="Map of the test area"></svg>
+  <p class="small" id="mapNote" style="margin-top:6px">Blue shape is the area. Red dot is you.</p>
+  <div class="grid" style="margin-top:8px">
+    <div class="stat"><b id="vEdge">–</b><span id="vEdgeL">Distance to the edge (m)</span></div>
+    <div class="stat" id="accBox"><b id="vAcc">–</b><span>GPS accuracy (± m)</span></div>
+    <div class="stat"><b id="vLat">–</b><span>Latitude</span></div>
+    <div class="stat"><b id="vLon">–</b><span>Longitude</span></div>
+  </div>
+  <p class="small" style="margin-top:10px" id="vTime">No reading yet.</p>
+</div>
+
+<div class="card">
+  <h2>Check-in demo</h2>
+  <p class="small">These buttons turn on only when the status is confirmed INSIDE. They only write to the list below.</p>
+  <div class="row">
+    <button id="btnIn" disabled>Check in</button>
+    <button id="btnOut" class="alt" disabled>Check out</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Test at home or at the gym</h2>
+  <p class="small">Makes a small 30 m × 30 m square around where you stand now, so you can walk out of it. Press the second button to go back to the campus.</p>
+  <button id="btnPractice" class="alt">Use practice square here</button>
+  <div class="row"><button id="btnCampus" class="alt">Use campus polygon</button></div>
+</div>
+
+<div class="card">
+  <h2>Status changes</h2>
+  <ul id="log"><li class="small">Nothing yet.</li></ul>
+</div>
+
+<div class="card small">
+  <p><b>How the “smart” rules work:</b></p>
+  <p>1. A reading with accuracy worse than 50 m is ignored.</p>
+  <p>2. It says Inside or Outside only if you are farther from the edge than the GPS error.</p>
+  <p>3. The status changes only after 3 readings in a row agree.</p>
+  <p>GPS can still be wrong, especially indoors. Keep the screen on while testing and press Stop when finished.</p>
+</div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  // Corners from TIU_polygon.kml, as [latitude, longitude]
+  var CAMPUS = [
+    [36.16770638697568, 43.95915804630634],
+    [36.16932212765897, 43.95878004128355],
+    [36.16878565763169, 43.95511375668508],
+    [36.16719212303195, 43.9554322342693]
+  ];
+  var OPTS = { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 };
+  var MAX_ACC = 50, NEED = 3;
+
+  var pts = [], lat0 = 0, lon0 = 0, shapeLabel = "";
+  var watchId = null, lastPos = null;
+  var lastRaw = null, streak = 0, confirmed = null;
+
+  function $(id) { return document.getElementById(id); }
+  function setMsg(t, k) { var m = $("msg"); m.textContent = t; m.className = k || ""; }
+  function setStatus(c, b, s) { $("status").className = c; $("sBig").textContent = b; $("sSub").textContent = s; }
+
+  function toLocal(lat, lon) {
+    return [(lon - lon0) * Math.cos(lat0 * Math.PI / 180) * 111320, (lat - lat0) * 110540];
+  }
+
+  function setShape(corners, label) {
+    var sl = 0, so = 0, i;
+    for (i = 0; i < corners.length; i++) { sl += corners[i][0]; so += corners[i][1]; }
+    lat0 = sl / corners.length; lon0 = so / corners.length;
+    pts = corners.map(function (c) { return toLocal(c[0], c[1]); });
+    shapeLabel = label;
+    $("shapeName").textContent = "Area: " + label + " (" + corners.length + " corners)";
+    lastRaw = null; streak = 0; confirmed = null;
+    updateChecks();
+    drawMap(null);
+  }
+
+  function inPoly(x, y) {
+    var inside = false, n = pts.length, i, j;
+    for (i = 0, j = n - 1; i < n; j = i++) {
+      var xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+
+  function edgeDist(x, y) {
+    var best = Infinity, n = pts.length, i;
+    for (i = 0; i < n; i++) {
+      var a = pts[i], b = pts[(i + 1) % n];
+      var dx = b[0] - a[0], dy = b[1] - a[1];
+      var t = ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy);
+      t = Math.max(0, Math.min(1, t));
+      var px = a[0] + t * dx - x, py = a[1] + t * dy - y;
+      best = Math.min(best, Math.sqrt(px * px + py * py));
+    }
+    return best;
+  }
+
+  function drawMap(you) {
+    var xs = pts.map(function (p) { return p[0]; }), ys = pts.map(function (p) { return p[1]; });
+    var cx = (Math.min.apply(null, xs) + Math.max.apply(null, xs)) / 2;
+    var cy = (Math.min.apply(null, ys) + Math.max.apply(null, ys)) / 2;
+    var far = false;
+    if (you) {
+      if (Math.sqrt(Math.pow(you.x - cx, 2) + Math.pow(you.y - cy, 2)) < 700) {
+        xs.push(you.x); ys.push(you.y);
+      } else { far = true; }
+    }
+    var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
+    var minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+    var pad = Math.max(maxX - minX, maxY - minY) * 0.12 + 5;
+    var w = maxX - minX + 2 * pad, h = maxY - minY + 2 * pad;
+    // Flip y so north is up
+    function fy(y) { return -y; }
+    var s = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+    var svg = $("map");
+    svg.setAttribute("viewBox", (minX - pad) + " " + fy(maxY + pad) + " " + w + " " + h);
+    var poly = pts.map(function (p) { return p[0] + "," + fy(p[1]); }).join(" ");
+    var html = '<polygon class="poly" points="' + poly + '"/>';
+    if (you && !far) {
+      html += '<circle class="accc" cx="' + you.x + '" cy="' + fy(you.y) + '" r="' + Math.max(you.acc, 1) + '"/>';
+      html += '<circle class="you" cx="' + you.x + '" cy="' + fy(you.y) + '" r="' + Math.max(w, h) * 0.012 + '"/>';
+    }
+    svg.innerHTML = html;
+    $("mapNote").textContent = far ? "You are far from this area, so the red dot is not drawn." : "Blue shape is the area. Red dot is you, pink circle is the GPS error.";
+  }
+
+  function addLog(text) {
+    var ul = $("log");
+    if (ul.firstChild && ul.firstChild.className === "small") ul.innerHTML = "";
+    var li = document.createElement("li");
+    li.textContent = new Date().toLocaleTimeString() + "  " + text;
+    ul.insertBefore(li, ul.firstChild);
+    while (ul.children.length > 14) ul.removeChild(ul.lastChild);
+  }
+
+  function updateChecks() {
+    var ok = confirmed === "in" && watchId !== null;
+    $("btnIn").disabled = !ok;
+    $("btnOut").disabled = !ok;
+  }
+
+  function errText(err) {
+    if (err.code === 1) return "Location permission was denied. Allow location for this site in Chrome settings, then try again.";
+    if (err.code === 2) return "Location is unavailable. Turn on Location in your phone’s quick settings.";
+    if (err.code === 3) return "Timed out while waiting for GPS. Move near a window or outside.";
+    return "Location error: " + (err.message || "unknown");
+  }
+
+  function render(pos) {
+    lastPos = pos;
+    var c = pos.coords, acc = c.accuracy;
+    var p = toLocal(c.latitude, c.longitude);
+    var inside = inPoly(p[0], p[1]);
+    var d = edgeDist(p[0], p[1]);
+
+    $("vLat").textContent = c.latitude.toFixed(6);
+    $("vLon").textContent = c.longitude.toFixed(6);
+    $("vAcc").textContent = acc.toFixed(0);
+    $("accBox").className = "stat" + (acc > 30 ? " bad" : "");
+    $("vEdge").textContent = d.toFixed(0) + (inside ? " in" : " out");
+    $("vEdgeL").textContent = "Distance to the edge (m), " + (inside ? "inside" : "outside");
+    $("vTime").textContent = "Last reading: " + new Date().toLocaleTimeString();
+    drawMap({ x: p[0], y: p[1], acc: acc });
+
+    var raw;
+    if (acc > MAX_ACC) raw = "bad";
+    else if (d >= acc) raw = inside ? "in" : "out";
+    else raw = "un";
+
+    var rawText;
+    if (raw === "bad") {
+      rawText = "Ignored: GPS accuracy ± " + acc.toFixed(0) + " m is worse than " + MAX_ACC + " m.";
+      setMsg("Poor GPS accuracy (± " + acc.toFixed(0) + " m). This reading is ignored.", "err");
+    } else {
+      if (raw === "un") {
+        rawText = "Too close to the edge to tell (error ± " + acc.toFixed(0) + " m, edge " + d.toFixed(0) + " m away).";
+        streak = 0; lastRaw = "un";
+        setMsg("Uncertain: you are closer to the edge than the GPS error.", "err");
+      } else {
+        rawText = "This reading says " + (raw === "in" ? "inside" : "outside") + ", " + d.toFixed(0) + " m from the edge.";
+        if (raw === lastRaw) streak++; else { lastRaw = raw; streak = 1; }
+        setMsg("Tracking. GPS accuracy ± " + acc.toFixed(0) + " m. Agreeing readings: " + Math.min(streak, NEED) + " of " + NEED + ".", acc > 30 ? "err" : "ok");
+        if (streak >= NEED && confirmed !== raw) {
+          confirmed = raw;
+          addLog((raw === "in" ? "INSIDE" : "OUTSIDE") + " confirmed, " + d.toFixed(0) + " m from edge, ± " + acc.toFixed(0) + " m");
+          updateChecks();
+        }
+      }
+    }
+
+    if (confirmed === "in") setStatus("in", "INSIDE", rawText);
+    else if (confirmed === "out") setStatus("out", "OUTSIDE", rawText);
+    else setStatus("un", "WAITING", rawText);
+  }
+
+  function startTest() {
+    if (!navigator.geolocation) { setMsg("This browser does not support location.", "err"); return; }
+    if (watchId !== null) return;
+    lastRaw = null; streak = 0; confirmed = null;
+    setStatus("idle", "Starting…", "Getting your location. This can take a few seconds.");
+    setMsg("Getting your location…");
+    $("btnStart").disabled = true; $("btnStop").disabled = false;
+    $("dot").className = "live";
+    watchId = navigator.geolocation.watchPosition(render, function (err) {
+      setMsg(errText(err), "err");
+      if (err.code === 1) stopTest(true);
+    }, OPTS);
+  }
+
+  function stopTest(keep) {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    confirmed = null;
+    $("btnStart").disabled = false; $("btnStop").disabled = true;
+    $("dot").className = "";
+    updateChecks();
+    if (keep !== true) { setMsg("Stopped. Location tracking is off."); setStatus("idle", "Stopped", "Press “Start live test”."); }
+  }
+
+  function makePractice() {
+    if (!navigator.geolocation) { setMsg("This browser does not support location.", "err"); return; }
+    stopTest(true);
+    $("btnPractice").disabled = true;
+    setMsg("Getting your location for the practice square…");
+    navigator.geolocation.getCurrentPosition(function (p) {
+      $("btnPractice").disabled = false;
+      var la = p.coords.latitude, lo = p.coords.longitude;
+      var dLa = 15 / 110540, dLo = 15 / (111320 * Math.cos(la * Math.PI / 180));
+      setShape([[la + dLa, lo - dLo], [la + dLa, lo + dLo], [la - dLa, lo + dLo], [la - dLa, lo - dLo]], "30 m practice square around you");
+      setStatus("idle", "Practice square", "Press “Start live test”, then walk out of the square.");
+      setMsg("Practice square saved here (this page only). GPS accuracy was ± " + p.coords.accuracy.toFixed(0) + " m.", p.coords.accuracy > 15 ? "err" : "ok");
+    }, function (err) {
+      $("btnPractice").disabled = false;
+      setMsg(errText(err), "err");
+    }, OPTS);
+  }
+
+  $("btnStart").addEventListener("click", startTest);
+  $("btnStop").addEventListener("click", function () { stopTest(); });
+  $("btnPractice").addEventListener("click", makePractice);
+  $("btnCampus").addEventListener("click", function () {
+    stopTest(true);
+    setShape(CAMPUS, "TIU campus polygon");
+    setStatus("idle", "Not started", "Press “Start live test”.");
+    setMsg("Campus polygon loaded.");
+  });
+  $("btnIn").addEventListener("click", function () { addLog("CHECK IN (demo)"); setMsg("Checked in (demo only).", "ok"); });
+  $("btnOut").addEventListener("click", function () { addLog("CHECK OUT (demo)"); setMsg("Checked out (demo only).", "ok"); });
+
+  setShape(CAMPUS, "TIU campus polygon");
+  if (!window.isSecureContext) $("secure").style.display = "block";
+  window.addEventListener("pagehide", function () { stopTest(true); });
+})();
+</script>
+</body>
+</html>
